@@ -1,10 +1,11 @@
 convolution_kernel = """
 //#pragma OPENCL EXTENSION cl_khr_fp64: enable
-#define BLOCK_DIM 32
+//#define BLOCK_DIM 32
 __kernel void func(__global const float* ckernel, __global const float* in_img, 
                         __global float* out_img, const unsigned int k, 
                         const unsigned int h, const unsigned int w,
-                        __local float* ckernel_block, __local float* img_block)
+                        __local float* ckernel_block, __local float* img_block, 
+                        const unsigned int BLOCK_DIM)
 {
     int img_w = BLOCK_DIM + k; 
     unsigned int lrow = get_local_id(0); 
@@ -40,7 +41,8 @@ __kernel void func(__global const float* ckernel, __global const float* in_img,
         for (int j = 0; j < k; j++)
             tmp += ckernel_block[i*k+j]*img_block[(lrow+i)*img_w+(lcol+j)];
     
-    out_img[row*w + col] = tmp;
+    if (row < h && col < w)
+        out_img[row*w + col] = tmp;
 }
 """
 
