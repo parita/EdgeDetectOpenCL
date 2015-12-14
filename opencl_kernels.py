@@ -107,14 +107,35 @@ __kernel void func(__global const float* ckernel, __global const float* in_img,
 
 threshold_kernel = """
 __kernel void func(__global const float* src_img, __global float* out_img, 
-                    const float thres, const unsigned int R, 
+                   __global const float* orientation, const float thres, const unsigned int R, 
                     const unsigned int C)
 {
     unsigned int i = get_global_id(0);
     unsigned int j = get_global_id(1);
+    float centre = 0.0;
+    float left = 0.0;
+    float right = 0.0;
     if (i < R && j < C)
     {
-        if (src_img[i*C + j] > thres)
+        int angle = orientation[i*C + j];
+        switch(angle)
+        {
+            case 0: if (j > 0)  left = src_img[i*C + (j-1)];
+                    if (j < C-1) right = src_img[i*C + (j+1)];
+                    break;
+            case 45: if (i < R-1 && j > 0) left = src_img[(i+1)*C + (j-1)];
+                     if (i > 0 && j < C-1) right = src_img[(i-1)*C + (j+1)];
+                     break;
+            case 90: if (i > 0) left = src_img[(i-1)*C + j];
+                     if (i < R-1) right = src_img[(i+1)*C + j];
+                     break;
+            case 135: if(i > 0 && j > 0) left = src_img[(i-1)*C + (j-1)];
+                      if(i < R-1 && j < C-1) right = src_img[(i+1)*C + (j+1)];
+                      break;
+            default: break;
+        }
+        centre = src_img[i*C + j];
+        if (centre > left && centre > right && centre > thres)
             out_img[i*C + j] = 1.0;
         else
             out_img[i*C + j] = 0.0;

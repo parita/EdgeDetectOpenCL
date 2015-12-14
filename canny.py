@@ -86,7 +86,7 @@ class GradientClass():
         self.gradientFunc.set_scalar_arg_dtypes([None, None, None, None, None, np.uint32, np.uint32, np.uint32, 
                                     None, None, None, np.uint32])
         self.thresholdFunc = gpu.buildKernel(threshold_kernel).func
-        self.thresholdFunc.set_scalar_arg_dtypes([None, None, np.float32, np.uint32, np.uint32])
+        self.thresholdFunc.set_scalar_arg_dtypes([None, None, None, np.float32, np.uint32, np.uint32])
 
     def makeBorder(self, src_img):
         src_img = np.float32(src_img) / np.amax(np.amax(src_img))
@@ -109,8 +109,15 @@ class GradientClass():
                             out_img_gpu.data, k, h, w, ckernel_blockx_gpu, ckernel_blocky_gpu, img_block_gpu, self.BLOCK_DIM)
         evt.wait()
         t = 1e-9 * (evt.profile.end - evt.profile.start)
-        src_img_gpu = cl.array.to_device(gpu.queue, out_img_gpu.get())
-        evt = self.thresholdFunc(gpu.queue, out_img.shape, None, src_img_gpu.data, out_img_gpu.data, thres, h, w)
+        Gx = Gx_gpu.get()
+        Gy = Gy_gpu.get()
+        angles = abs(np.arctan(Gy/Gx)) * 4 / np.pi
+        angles = np.int32(angles)
+        src_img = out_img_gpu.get()
+        src_img = src_img / np.amax(src_img)
+        src_img_gpu = cl.array.to_device(gpu.queue, src_img)
+        angles_gpu = cl.array.to_device(gpu.queue, angles)
+        evt = self.thresholdFunc(gpu.queue, out_img.shape, None, src_img_gpu.data, out_img_gpu.data, angles_gpu.data, thres, h, w)
         evt.wait()
         t = t + 1e-9 * (evt.profile.end - evt.profile.start)
         return t, out_img_gpu.get()
@@ -157,7 +164,7 @@ class Canny():
         # For blurring, we convolve with the guassian kernel
         out_img = np.empty(src_img.shape, dtype = src_img.dtype)
         src_img = Gxy.makeBorder(src_img)
-        [t, out_img] = Gxy.gradientxy(self.gpu, src_img, out_img, 0.9)
+        [t, out_img] = Gxy.gradientxy(self.gpu, src_img, out_img, 0.05)
         out_img = self.adjust_output(out_img, old_dim)
         return t, out_img
 
