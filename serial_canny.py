@@ -17,7 +17,7 @@ def CannyThreshold(lowThreshold):
     time_list.append(runtime)
     imshow('Output', out_img)
 
-src_img = imread('Lena.bmp', 0)
+src_img = imread('Lenna.png', 0)
 out_img = src_img
 
 namedWindow('Output')
