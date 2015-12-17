@@ -49,12 +49,11 @@ __kernel void func(__global const float* ckernel, __global const float* in_img,
 gradient_kernel = """
 //#pragma OPENCL EXTENSION cl_khr_fp64: enable
 //#define BLOCK_DIM 32
-__kernel void func(__global const float* ckernel, __global const float* in_img, 
-                        __global float* Gx, __global float* Gy,
-                        __global float* out_img, const unsigned int k, 
+//#define pi 3.14159265
+__kernel void func(__global const float* ckernel,__global const float* ckernel2, __global const float* in_img, 
+                       __global float* mag,__global float* ang, const unsigned int k, 
                         const unsigned int h, const unsigned int w,
-                        __local float* ckernel_blockx, __local float* ckernel_blocky,
-                        __local float* img_block, 
+                        __local float* ckernel_block,__local float* ckernel2_block, __local float* img_block, 
                         const unsigned int BLOCK_DIM)
 {
     int img_w = BLOCK_DIM + k; 
@@ -66,8 +65,8 @@ __kernel void func(__global const float* ckernel, __global const float* in_img,
     unsigned int col = get_global_id(1);
     if (lrow < k && lcol < k)
     {
-        ckernel_blockx[lrow*k+lcol] = ckernel[lrow*k+lcol];
-        ckernel_blocky[lrow*k+lcol] = ckernel[lcol*k+lrow];
+        ckernel_block[lrow*k+lcol]  = ckernel[lrow*k+lcol];
+        ckernel2_block[lrow*k+lcol] = ckernel2[lrow*k+lcol];
     }
     if (row < h && col < w)
     {
@@ -86,21 +85,35 @@ __kernel void func(__global const float* ckernel, __global const float* in_img,
     if (lcol < BLOCK_DIM && lrow < k)
         img_block[(BLOCK_DIM+lrow)*img_w + lcol] = in_img[(BLOCK_DIM+row)*(w+k-1) + col];
     barrier(CLK_LOCAL_MEM_FENCE);
-
-    float tmpx = 0.0;
-    float tmpy = 0.0;
+    float tmp  = 0.0;
+    float tmp2 = 0.0;
     for (int i = 0; i < k; i++)
         for (int j = 0; j < k; j++)
-    {
-            tmpx += ckernel_blockx[i*k+j]*img_block[(lrow+i)*img_w+(lcol+j)];
-            tmpx += ckernel_blocky[i*k+j]*img_block[(lrow+i)*img_w+(lcol+j)];
-    }
-    
+        {
+            tmp += ckernel_block[i*k+j]*img_block[(lrow+i)*img_w+(lcol+j)];
+            tmp2 += ckernel2_block[i*k+j]*img_block[(lrow+i)*img_w+(lcol+j)];
+        }
+               
+    float angle=0.0;
+    float m=0.0;
     if (row < h && col < w)
     {
-        Gx[row*w + col] = tmpx;
-        Gy[row*w + col] = tmpy;
-        out_img[row*w + col] = sqrt(tmpx*tmpx + tmpy*tmpy);
+        m = sqrt(tmp*tmp+tmp2*tmp2);
+        mag[row*w+col] = m;
+        angle = (180/M_PI)*acos(tmp/m);
+        
+        if (angle >= 0.0 && angle < 22.5)
+            angle = 0;
+        else if (angle >= 22.5 && angle < 67.5)
+            angle = 45;
+        else if (angle >= 67.5 && angle < 112.5)
+            angle = 90;
+        else if (angle >= 112.5 && angle < 157.5)
+            angle = 135;
+        else
+            angle = 180;
+        
+        ang[row*w+col] = angle;
     }
 }
 """
